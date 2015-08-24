@@ -1,0 +1,11 @@
+.vagrant
+.vault
+*.log
+*.class
+*.tgz
+project/project
+project/target
+target/streams
+target/resolution-cache
+*.jar
+spark-1.4.1-bin-hadoop2.4
