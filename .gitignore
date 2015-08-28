@@ -1,8 +1,7 @@
 *.log
 *.class
+*.jar
 *.tgz
 project/project
 project/target
-target/streams
-target/resolution-cache
-*.jar
+target

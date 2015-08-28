@@ -1,7 +1,7 @@
 -- Make the schema
-CREATE SCHEMA IF NOT EXISTS spider;
+CREATE SCHEMA IF NOT EXISTS test;
 
 -- Make the user, give it full access
-CREATE USER spider_rw PASSWORD 'development';
-GRANT ALL ON SCHEMA spider TO spider_rw;
-GRANT ALL ON ALL TABLES IN SCHEMA spider TO spider_rw;
+CREATE USER test PASSWORD 'development';
+GRANT ALL ON SCHEMA test TO test;
+GRANT ALL ON ALL TABLES IN SCHEMA test TO test;

@@ -1,8 +1,12 @@
 package software.geowa4.twitter_consumer
 
 import org.apache.spark._
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+import org.apache.spark.sql._
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.twitter._
+import java.util.Properties
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import TwitterStatus._
@@ -13,9 +17,17 @@ object TwitterConsumer {
     Logger.getLogger("akka").setLevel(Level.OFF)
 
     val conf = new SparkConf().setAppName("TwitterConsumer")
-    val ssc = new StreamingContext(conf, Seconds(5))
+    val ssc = new StreamingContext(conf, Seconds(30))
  
-    val Array(consumerKey, consumerSecret, accessToken, accessTokenSecret) = args.take(4)
+    val Array(
+      consumerKey,
+      consumerSecret,
+      accessToken,
+      accessTokenSecret,
+      jdbcUrl,
+      jdbcUser,
+      jdbcPassword
+    ) = args.take(7)
     // Set the system properties so that Twitter4j library used by twitter stream
     // can use them to generat OAuth credentials
     System.setProperty("twitter4j.oauth.consumerKey", consumerKey)
@@ -24,40 +36,29 @@ object TwitterConsumer {
     System.setProperty("twitter4j.oauth.accessTokenSecret", accessTokenSecret)
     val stream = TwitterUtils.createStream(ssc, None)
 
-    val numWithLocation = stream.map(_.latitude match {
-      case Some(_) => 1
-      case None => 0
-    })
-    .reduce(_ + _)
-    numWithLocation.print()
+    val streamWithLocation = stream
+      .filter(_.latitude match {
+        case Some(_) => true
+        case None => false
+      })
+    streamWithLocation.count().print()
     stream.count().print()
 
-    val hashTags = stream.flatMap(status => status.text.split(" ").filter(_.startsWith("#")))
+    streamWithLocation
+      .foreachRDD { rdd =>
+        val sqlContext = SQLContext.getOrCreate(rdd.sparkContext)
+        import sqlContext.implicits._
 
-    val topCounts60 = hashTags
-      .map((_, 1))
-      .reduceByKeyAndWindow(_ + _, Seconds(60))
-      .map(_.swap)
-      .transform(_.sortByKey(false))
-
-    val topCounts10 = hashTags
-      .map((_, 1))
-      .reduceByKeyAndWindow(_ + _, Seconds(10))
-      .map(_.swap)
-      .transform(_.sortByKey(false))
-
-    // Print popular hashtags
-    topCounts60.foreachRDD(rdd => {
-      val topList = rdd.take(10)
-      println("\nPopular topics in last 60 seconds (%s total):".format(rdd.count()))
-      topList.foreach{case (count, tag) => println("%s (%s tweets)".format(tag, count))}
-    })
-
-    topCounts10.foreachRDD(rdd => {
-      val topList = rdd.take(10)
-      println("\nPopular topics in last 10 seconds (%s total):".format(rdd.count()))
-      topList.foreach{case (count, tag) => println("%s (%s tweets)".format(tag, count))}
-    })
+        val statuses = rdd
+          .map(s => (s.id, s.userId, s.text, s.latitude, s.longitude))
+          .toDF("id", "user_id", "text", "latitude", "longitude")
+        val connectionProps = new Properties()
+        connectionProps.setProperty("user", jdbcUser)
+        connectionProps.setProperty("password", jdbcPassword)
+        // checkpoint
+        statuses.write.mode("append").jdbc(jdbcUrl, "twitter_statuses", connectionProps)
+        // checkpoint
+      }
 
     ssc.start()
     ssc.awaitTermination()

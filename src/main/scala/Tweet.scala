@@ -4,21 +4,24 @@ object TwitterStatus {
   implicit def twitter4jStatusToTwitterStatus(status: twitter4j.Status): TwitterStatus = {
     val user = status.getUser()
     val geoLocation = status.getGeoLocation()
-    if (geoLocation == null) {
-      TwitterStatus(user.getId(), status.getText(), None, None)
-    }
-    else {
-      TwitterStatus(
-        user.getId(),
-        status.getText(),
-        Option(geoLocation.getLatitude()),
-        Option(geoLocation.getLongitude())
-      )
-    }
+    TwitterStatus(
+      status.getId(),
+      user.getId(),
+      status.getText(),
+      Option(geoLocation) match {
+        case None => None;
+        case Some(gl) => Some(gl.getLatitude())
+      },
+      Option(geoLocation) match {
+        case None => None;
+        case Some(gl) => Some(gl.getLongitude())
+      }
+    )
   }
 }
 
 case class TwitterStatus(
+  id: Long,
   userId: Long,
   text: String,
   latitude: Option[Double],
