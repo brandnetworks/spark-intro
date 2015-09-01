@@ -9,12 +9,12 @@ object TwitterStatus {
       user.getId(),
       status.getText(),
       Option(geoLocation) match {
-        case None => None;
         case Some(gl) => Some(gl.getLatitude())
+        case None => None
       },
       Option(geoLocation) match {
-        case None => None;
         case Some(gl) => Some(gl.getLongitude())
+        case None => None
       }
     )
   }
